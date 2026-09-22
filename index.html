@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LiDAR Adaptive 2.5D Mapping — Operator Console</title>
+<style>
+  :root{--bg:#08111f;--panel:#0d1929;--line:#213650;--text:#dce8f7;--muted:#89a0ba;
+        --cyan:#35d7ff;--green:#5cff9d;--orange:#ffb454;--red:#ff5d73;--purple:#9e8cff}
+  *{box-sizing:border-box}
+  body{margin:0;background:#050a11;color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;overflow:hidden}
+  .app{height:100vh;display:grid;grid-template-rows:64px 1fr 34px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:0 18px;
+         border-bottom:1px solid var(--line);background:rgba(7,16,28,.94)}
+  .brand{display:flex;gap:12px;align-items:center}.brand .dot{width:14px;height:14px;border-radius:50%;
+         background:var(--cyan);box-shadow:0 0 18px var(--cyan)}
+  .brand h1{font-size:18px;margin:0}.brand span{font-size:12px;color:var(--muted)}
+  .statusChips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto;margin-right:14px}
+  .chip{font-size:9px;letter-spacing:.35px;padding:5px 8px;border-radius:999px;border:1px solid #24425f;background:#0d1d2e;color:#9fc4dc}
+  .chip b{color:#dce8f7}
+  .miniBadge{font-size:9px;padding:3px 7px;border-radius:999px;border:1px solid rgba(92,255,157,.25);background:rgba(16,37,27,.8);color:#84ffb8}
+  .mapHint{position:absolute;right:10px;top:10px;min-width:205px;padding:8px 10px;border-radius:9px;background:rgba(2,7,12,.78);border:1px solid rgba(91,174,220,.25);backdrop-filter:blur(3px);font-size:10px;color:#a9bfd1;line-height:1.45;pointer-events:none}
+  .mapHint .big{font-size:13px;font-weight:800;color:#eef8ff}
+  .mapHint .accent{color:#7ee0ff}
+  .legend .key strong{color:#e8f4ff}
+  .stats{display:flex;gap:18px;font-size:12px;color:var(--muted)}.stats b{color:var(--text)}
+  main{min-height:0;padding:10px;display:grid;grid-template-columns:1fr .64fr 2.36fr;gap:10px}
+  .panel{min-width:0;min-height:0;background:linear-gradient(180deg,var(--panel),#0a1624);
+         border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+  .panelHead{height:44px;flex:0 0 44px;display:flex;align-items:center;justify-content:space-between;
+              padding:0 12px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}
+  .panelHead h2{font-size:13px;margin:0;letter-spacing:.5px}
+  .badge{font-size:10px;padding:4px 8px;border-radius:999px;background:#122841;border:1px solid #1c4668;color:#78dfff}
+  .canvasWrap{position:relative;flex:1;min-height:0}
+  canvas{width:100%;height:100%;display:block}
+  .overlay{position:absolute;left:10px;top:10px;padding:7px 9px;border-radius:8px;
+           background:rgba(5,11,19,.72);border:1px solid rgba(122,160,195,.25);
+           font-size:11px;color:var(--muted);pointer-events:none;line-height:1.45}
+  .legend{position:absolute;right:10px;bottom:10px;display:grid;gap:5px;font-size:10px;color:var(--muted);
+          background:rgba(5,11,19,.7);border:1px solid rgba(122,160,195,.2);padding:7px 8px;border-radius:8px}
+  .key{display:flex;gap:6px;align-items:center}.swatch{width:10px;height:10px;border-radius:2px}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-top:1px solid var(--line);
+            font-size:11px;color:var(--muted)}
+  button{background:#10253c;color:var(--text);border:1px solid #24425f;padding:8px 10px;border-radius:7px;
+         cursor:pointer;font-size:11px}button:hover{background:#163451}
+  .info{display:grid;grid-template-columns:1fr 1fr;gap:8px}.metric{background:#0b1828;border:1px solid #19304a;
+         border-radius:8px;padding:8px}.metric .k{font-size:10px;color:var(--muted)}.metric .v{font-size:14px;font-weight:700;margin-top:2px}
+  .bottom{border-top:1px solid var(--line);padding:0 14px;display:flex;align-items:center;justify-content:space-between;
+          font-size:10px;color:var(--muted)}.hint{color:#a7bdd5}
+  @media(max-width:1000px){body{overflow:auto}.app{height:auto;min-height:100vh}main{grid-template-columns:1fr}.panel{height:520px}.panel:nth-child(3){height:620px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>ADAPTIVE LiDAR // 2.5D MAPPING CONSOLE</h1>
+      <span>Operator view • distance-adaptive mapping • elevation-aware perception • dynamic scene monitoring</span>
+    </div>
+  </div>
+  <div class="statusChips">
+    <span class="chip">CITY <b>6×4 BLOCK GRID</b></span>
+    <span class="chip">LiDAR FOV <b>±18°</b></span>
+    <span class="chip">ADAPTIVE <b>5–50 cm</b></span>
+  </div>
+  <div class="stats">
+    <span>MAP <b style="color:#5cff9d">LIVE</b></span>
+    <span>FPS <b id="fps">60</b></span>
+    <span>POINTS <b id="rayCount">9,000</b></span>
+    <span>RANGE <b id="range">18.0 m</b></span>
+    <span>CONF <b id="confHeader">HIGH</b></span>
+  </div>
+</header>
+
+<main>
+<section class="panel">
+  <div class="panelHead"><h2>01 • LIVE ENVIRONMENT / OPERATOR VIEW</h2><span class="badge">WASD / ARROWS</span></div>
+  <div class="canvasWrap">
+    <canvas id="world"></canvas>
+    <div class="overlay">
+      <div><b>PLATFORM:</b> DEMO-01</div>
+      <div><b>CONTROL:</b> WASD / ARROWS</div>
+      <div><b>SENSOR:</b> 360° LiDAR • live</div>
+      <div><b>MAP:</b> raw XYZ point cloud</div>
+      <div><b>CORE RULE:</b> NEAR = FINE • FAR = COARSE</div>
+    </div>
+    <div class="legend">
+      <div class="key"><span class="swatch" style="background:#35d7ff"></span> Live returns</div>
+      <div class="key"><span class="swatch" style="background:#ffb454"></span> Static structure</div>
+      <div class="key"><span class="swatch" style="background:#ff5d73"></span> Dynamic object</div>
+      <div class="key"><span class="swatch" style="background:#5cff9d"></span> Own platform</div>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="resetBtn">Reset platform / clear history</button>
+    <button id="addBtn">Add dynamic object</button>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panelHead"><h2>02 • SENSOR RETURNS / 360° SCAN</h2><span class="badge">POLAR RETURNS</span></div>
+  <div class="canvasWrap">
+    <canvas id="lidar"></canvas>
+    <div class="overlay">Polar scan • distance-coded returns</div>
+    <div class="legend">
+      <div class="key"><span class="swatch" style="background:#35d7ff"></span> Near return</div>
+      <div class="key"><span class="swatch" style="background:#9e8cff"></span> Mid-range</div>
+      <div class="key"><span class="swatch" style="background:#ffb454"></span> Far return</div>
+      <div class="key"><span class="swatch" style="background:#ff5d73"></span> Dynamic return</div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panelHead">
+      <h2>03 • PRIMARY 2.5D SITUATIONAL MAP</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="badge">RAW POINT CLOUD</span><span class="badge">XYZ • 25CH SIM</span>
+        <span class="badge" style="color:#7ee0ff;border-color:#24506a;background:#0d1e2b">NORTH-UP</span>
+        <span class="badge" style="color:#ffd778;border-color:#665227;background:#201b0d">OBSERVED Z ≠ TOTAL HEIGHT</span>
+      </div>
+    </div>
+  <div class="canvasWrap">
+    <canvas id="map" aria-label="North-up LiDAR-centric 2.5D map"></canvas>
+    <div class="overlay">
+      <div><b>Raw cloud:</b> every dot is an individual simulated LiDAR XYZ return</div>
+      <div><b>Height:</b> only the part inside the vertical field-of-view is visible</div>
+      <div><b>Map:</b> adaptive cells sit underneath the raw points</div>
+      <div><b>Scene:</b> building facades • vehicles • vegetation • pedestrian returns</div>
+    </div>
+    <div class="mapHint">
+      <div>OBSERVED HEIGHT</div>
+      <div class="big" id="observedTop">0.0 m / 0.0 ft</div>
+      <div class="accent" id="fovCeiling">FOV ceiling @ 18 m: 7.0 m / 23.1 ft</div>
+      <div>Buildings taller than this are <b>not invented</b> in the LiDAR map.</div>
+    </div>
+    <div class="legend">
+      <div class="key"><span class="swatch" style="background:#35d7ff"></span> Fine / high-interest</div>
+      <div class="key"><span class="swatch" style="background:#5cff9d"></span> Medium</div>
+      <div class="key"><span class="swatch" style="background:#9e8cff"></span> Coarse</div>
+      <div class="key"><span class="swatch" style="background:#ffb454"></span> Higher Z return</div>
+      <div class="key"><span class="swatch" style="background:#35d7ff"></span> <strong>5 cm cells</strong></div>
+      <div class="key"><span class="swatch" style="background:#9e8cff"></span> <strong>50 cm cells</strong></div>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="info">
+      <div class="metric"><div class="k">LOCAL RESOLUTION</div><div class="v">5–50 cm</div></div>
+      <div class="metric"><div class="k">DETECTED RETURNS</div><div class="v" id="returnsVal">0</div></div>
+    </div>
+    <div class="info">
+      <div class="metric"><div class="k">OBSERVED HEIGHT</div><div class="v" id="heightVal">0–0 m</div></div>
+      <div class="metric"><div class="k">VERTICAL FOV</div><div class="v">±18°</div></div>
+      <div class="metric"><div class="k">DYNAMIC OBJECTS</div><div class="v" id="dynamicVal">0</div></div>
+      <div class="metric"><div class="k">SCENE SEMANTICS</div><div class="v">BLDG • TREE • VEH</div></div>
+      <div class="metric"><div class="k">OBSERVED CLUSTERS</div><div class="v" id="clusterVal">0</div></div>
+    </div>
+    <div class="info">
+      <div class="metric"><div class="k">MAP CONFIDENCE</div><div class="v" id="mapConf">HIGH</div></div>
+      <div class="metric"><div class="k">MAPPED HISTORY</div><div class="v" id="historyVal">0 s</div></div>
+      <div class="metric"><div class="k">ACTIVE BAND</div><div class="v" id="activeBand">0–5 m / 5 cm</div></div>
+      <div class="metric"><div class="k">FAR-BAND CELL</div><div class="v">50 cm</div></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<div class="bottom">
+  <span>CORE MAPPING RULE: RAW XYZ RETURNS → DISTANCE-ADAPTIVE 2.5D REPRESENTATION</span>
+  <span class="hint">SENSOR ONLINE • MAPPING ONLINE • DYNAMIC SCENE</span>
+</div>
+</div>
+
+<script>
+(() => {
+  const world=document.getElementById('world'), lidar=document.getElementById('lidar'), map=document.getElementById('map');
+  const wc=world.getContext('2d'), lc=lidar.getContext('2d'), mc=map.getContext('2d');
+
+  function seededRandom(seed){
+    let t=seed>>>0;
+    return function(){t+=0x6D2B79F5;let r=Math.imul(t^t>>>15,1|t);r^=r+Math.imul(r^r>>>7,61|r);return ((r^r>>>14)>>>0)/4294967296;};
+  }
+  function makeCity(){
+    const rnd=seededRandom(260426);
+    const buildings=[];
+    const xs=[-25,-15,-5,5,15,25], ys=[-15,-5,5,15];
+    let id=1;
+    const styles=['L','COURTYARD','STEPPED','TOWER'];
+    for(const cy of ys){
+      for(const cx of xs){
+        if((cx===-5&&cy===5)||(cx===5&&cy===-5)) continue; // plazas / open blocks
+        const w=6.2+rnd()*2.3, h=5.8+rnd()*2.8;
+        const z=5.5+rnd()*22.5;
+        const style=styles[Math.floor(rnd()*styles.length)];
+        const parts=[{x:cx-w/2,y:cy-h/2,w,h,z}];
+        if(style==='L'){
+          parts.push({x:cx-w*.50,y:cy+h*.05,w:w*.42,h:h*.43,z});
+        } else if(style==='COURTYARD'){
+          parts.push({x:cx-w*.03,y:cy-h*.53,w:w*.53,h:h*.30,z});
+          parts.push({x:cx-w*.50,y:cy-h*.05,w:w*.30,h:h*.45,z});
+        } else if(style==='STEPPED'){
+          parts[0].w=w*.78; parts[0].h=h*.82; parts[0].x= cx-parts[0].w/2; parts[0].y=cy-parts[0].h/2;
+          parts.push({x:cx+w*.03,y:cy-h*.51,w:w*.46,h:h*.36,z});
+        } else if(style==='TOWER'){
+          parts[0].w=w*.72; parts[0].h=h*.72; parts[0].x=cx-parts[0].w/2; parts[0].y=cy-parts[0].h/2;
+          parts.push({x:cx-w*.50,y:cy-h*.10,w:w*.26,h:h*.46,z});
+          parts.push({x:cx+w*.24,y:cy+h*.03,w:w*.26,h:h*.34,z});
+        }
+        // Small roof plant / service core: visible to LiDAR as a real raised structure.
+        const roofW=Math.max(1.2,w*.18), roofH=Math.max(1.1,h*.16);
+        const roof={x:cx+(-.15+rnd()*.3)*w/2-roofW/2,y:cy+(-.15+rnd()*.3)*h/2-roofH/2,w:roofW,h:roofH,z:z+.8};
+        buildings.push({id:`B${String(id++).padStart(2,'0')}`,x:cx-w/2,y:cy-h/2,w,h,z,style,parts,roof});
+      }
+    }
+    // Marked landmarks with very different footprints and total heights.
+    const landmarks=[
+      {id:'T01',x:-31,y:14,w:7.0,h:6.2,z:28,style:'TOWER'},
+      {id:'T02',x:25,y:11.5,w:8.0,h:6.8,z:19,style:'STEPPED'},
+      {id:'T03',x:16.5,y:-20,w:9.5,h:5.5,z:13,style:'COURTYARD'},
+      {id:'T04',x:-29,y:-20,w:8.5,h:6.0,z:8,style:'L'}
+    ];
+    for(const o of landmarks){
+      const parts=[{x:o.x,y:o.y,w:o.w*.68,h:o.h*.74,z:o.z}];
+      parts.push({x:o.x+o.w*.28,y:o.y+o.h*.05,w:o.w*.42,h:o.h*.40,z:o.z});
+      buildings.push({...o,parts,roof:{x:o.x+o.w*.22,y:o.y+o.h*.24,w:o.w*.18,h:o.h*.18,z:o.z+.9}});
+    }
+    return buildings;
+  }
+  function makeTrees(){
+    const rnd=seededRandom(99127), trees=[];
+    let id=1;
+    const anchors=[
+      [-31,-5],[-31,5],[-31,24],[-21,-14],[-18,14],[-8,-20],[-8,20],[2,-20],[2,20],[12,-20],[12,20],[22,-20],[22,20],[31,-5],[31,5],[-32,15],[32,15],[-32,-15],[32,-15],[-2,7],[2,7],[-2,-7],[2,-7]
+    ];
+    for(const [ax,ay] of anchors){
+      for(let k=0;k<1+(rnd()>.55?1:0);k++){
+        let x=ax+(rnd()-.5)*2.2, y=ay+(rnd()-.5)*2.2;
+        const r=.20+rnd()*.16, trunkH=1.8+rnd()*.8, crownR=.85+rnd()*.42, crownZ=2.7+rnd()*1.1;
+        if(stateSafeBuildingCheck(x,y,crownR*0.75)) continue;
+        trees.push({id:`TR${String(id++).padStart(2,'0')}`,x,y,trunkR:r,trunkH,crownR,crownZ,totalH:crownZ+crownR*.9});
+      }
+    }
+    return trees;
+  }
+  function stateSafeBuildingCheck(x,y,margin){
+    // Pure geometric check during scene creation; state is not initialized yet.
+    const city=makeCity.baseCity || [];
+    return city.some(o=>(o.parts||[{x:o.x,y:o.y,w:o.w,h:o.h}]).some(p=>x>p.x-margin&&x<p.x+p.w+margin&&y>p.y-margin&&y<p.y+p.h+margin));
+  }
+  const CITY_BUILDINGS = makeCity();
+  makeCity.baseCity = CITY_BUILDINGS;
+
+  // Route-based urban movement: vehicles enter from map edges, stay in
+  // explicit lanes, turn through intersections, then leave the map.
+  const CAR_ROUTES = [
+    {id:'E1',kind:'road',speed:6.2,pts:[[-38,-1.45],[-30,-1.45],[-20,-1.45],[-10,-1.45],[0,-1.45],[10,-1.45],[20,-1.45],[30,-1.45],[38,-1.45]]},
+    {id:'W1',kind:'road',speed:6.0,pts:[[38,1.45],[30,1.45],[20,1.45],[10,1.45],[0,1.45],[-10,1.45],[-20,1.45],[-30,1.45],[-38,1.45]]},
+    {id:'N1',kind:'road',speed:5.8,pts:[[-11.45,-28],[-11.45,-20],[-11.45,-10],[-11.45,0],[-11.45,10],[-11.45,20],[-11.45,28]]},
+    {id:'S1',kind:'road',speed:5.9,pts:[[11.45,28],[11.45,20],[11.45,10],[11.45,0],[11.45,-10],[11.45,-20],[11.45,-28]]},
+    {id:'EN1',kind:'road',speed:6.0,pts:[[-38,11.45],[-30,11.45],[-20,11.45],[-10,11.45],[0,11.45],[0,20],[0,28]]},
+    {id:'SE1',kind:'road',speed:5.7,pts:[[11.45,28],[11.45,20],[11.45,10],[11.45,0],[20,0],[30,0],[38,0]]},
+    {id:'WS1',kind:'road',speed:6.0,pts:[[38,-11.45],[30,-11.45],[20,-11.45],[10,-11.45],[0,-11.45],[0,-20],[0,-28]]},
+    {id:'NW1',kind:'road',speed:5.6,pts:[[-11.45,-28],[-11.45,-20],[-11.45,-10],[-11.45,0],[-20,0],[-30,0],[-38,0]]}
+  ];
+  const PED_ROUTES = [
+    {id:'P_E1',kind:'sidewalk',speed:1.35,pts:[[-38,-3.15],[-30,-3.15],[-20,-3.15],[-10,-3.15],[0,-3.15],[10,-3.15],[20,-3.15],[30,-3.15],[38,-3.15]]},
+    {id:'P_W1',kind:'sidewalk',speed:1.28,pts:[[38,3.15],[30,3.15],[20,3.15],[10,3.15],[0,3.15],[-10,3.15],[-20,3.15],[-30,3.15],[-38,3.15]]},
+    {id:'P_E2',kind:'sidewalk',speed:1.22,pts:[[-38,13.15],[-30,13.15],[-20,13.15],[-10,13.15],[0,13.15],[10,13.15],[20,13.15],[30,13.15],[38,13.15]]},
+    {id:'P_W2',kind:'sidewalk',speed:1.30,pts:[[38,-13.15],[30,-13.15],[20,-13.15],[10,-13.15],[0,-13.15],[-10,-13.15],[-20,-13.15],[-30,-13.15],[-38,-13.15]]},
+    {id:'P_N1',kind:'sidewalk',speed:1.25,pts:[[-13.15,-28],[-13.15,-20],[-13.15,-10],[-13.15,0],[-13.15,10],[-13.15,20],[-13.15,28]]},
+    {id:'P_S1',kind:'sidewalk',speed:1.30,pts:[[13.15,28],[13.15,20],[13.15,10],[13.15,0],[13.15,-10],[13.15,-20],[13.15,-28]]},
+    {id:'P_N2',kind:'sidewalk',speed:1.18,pts:[[6.85,-28],[6.85,-20],[6.85,-10],[6.85,0],[6.85,10],[6.85,20],[6.85,28]]},
+    {id:'P_S2',kind:'sidewalk',speed:1.24,pts:[[-6.85,28],[-6.85,20],[-6.85,10],[-6.85,0],[-6.85,-10],[-6.85,-20],[-6.85,-28]]}
+  ];
+
+  const state={
+    robot:{x:0,y:0,a:0,speed:3.0},
+    keys:{}, rays:360, verticalChannels:25, range:18, sensorZ:1.2, worldW:68, worldH:50,
+    scan:[], cloud:[], last:performance.now(), fps:60,
+    path:[], mappedReturns:[], mapTime:0, clusters:[], selectedCluster:-1, analyzeTick:0,
+    moving:[], obstacles:CITY_BUILDINGS, trees:[], carRoutes:CAR_ROUTES, pedRoutes:PED_ROUTES,
+    trafficClock:0.6, pedestrianClock:0.35, trafficIn:0, trafficOut:0, pedestriansIn:0, pedestriansOut:0
+  };
+  state.trees=makeTrees();
+
+
+  function routeLengths(route){
+    if(route._lens) return route._lens;
+    const lens=[]; let total=0;
+    for(let i=0;i<route.pts.length-1;i++){
+      const a=route.pts[i],b=route.pts[i+1],d=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      lens.push(d); total+=d;
+    }
+    route._lens=lens; route._total=total; return lens;
+  }
+  function routeSample(route,seg,t){
+    const a=route.pts[Math.min(seg,route.pts.length-2)], b=route.pts[Math.min(seg+1,route.pts.length-1)];
+    return {x:a[0]+(b[0]-a[0])*t,y:a[1]+(b[1]-a[1])*t,heading:Math.atan2(b[1]-a[1],b[0]-a[0])};
+  }
+  function routeProgress(m){
+    const lens=routeLengths(m.route); let s=0;
+    for(let i=0;i<m.seg;i++) s+=lens[i]||0;
+    s+=(lens[m.seg]||0)*m.t; return s;
+  }
+  function advanceOnRoute(m,dist){
+    const lens=routeLengths(m.route); let remain=dist;
+    while(remain>0 && m.seg<lens.length){
+      const segLen=lens[m.seg]||1e-6, left=segLen*(1-m.t);
+      if(remain<left){m.t+=remain/segLen;remain=0;}
+      else{remain-=left;m.seg++;m.t=0;}
+    }
+    return m.seg>=lens.length;
+  }
+  function sameFlowAhead(a,b){
+    if(a.kind!=='car'||b.kind!=='car'||a.routeId!==b.routeId) return false;
+    const ds=routeProgress(b)-routeProgress(a);
+    if(ds<=0||ds>10) return false;
+    const lateral=Math.abs((b.x-a.x)*(-Math.sin(a.heading))+(b.y-a.y)*Math.cos(a.heading));
+    return lateral<1.6;
+  }
+  function spawnActor(route,kind,reverse=false,force=false){
+    const pts=reverse?route.pts.slice().reverse():route.pts.slice();
+    const liveRoute={id:route.id,kind:route.kind,speed:route.speed,pts}; routeLengths(liveRoute);
+    if(!force && state.moving.some(m=>m.routeId===route.id && Math.hypot(m.x-liveRoute.pts[0][0],m.y-liveRoute.pts[0][1])<7)) return false;
+    const start=routeSample(liveRoute,0,0.015), isCar=kind==='car';
+    const van=isCar && Math.random()<.18;
+    const m=isCar ? {x:start.x,y:start.y,vx:0,vy:0,len:van?5.0:3.9,wid:van?2.0:1.78,h:van?1.95:1.55,kind:van?'van':'car',heading:start.heading,routeId:route.id,route:liveRoute,seg:0,t:.015,speedLimit:route.speed*(.84+Math.random()*.20),flowKind:'traffic'} : {x:start.x,y:start.y,vx:0,vy:0,r:.28,h:1.65,kind:'ped',heading:start.heading,routeId:route.id,route:liveRoute,seg:0,t:.015,speedLimit:route.speed*(.84+Math.random()*.22),flowKind:'pedestrian'};
+    state.moving.push(m);
+    if(isCar) state.trafficIn++; else state.pedestriansIn++;
+    return true;
+  }
+  function seedTraffic(){
+    [0,2,4,6,1,3].forEach((idx,i)=>spawnActor(state.carRoutes[idx],'car',i%2===1,true));
+    [0,2,4,6,1,5,3,7].forEach((idx,i)=>spawnActor(state.pedRoutes[idx],'ped',i%2===1,true));
+  }
+  function tryMoveRobot(nx,ny,radius=.58){
+    let moved=false;
+    if(nx>-33.4 && nx<33.4 && !pointInsideObstacle(nx,state.robot.y,radius)){state.robot.x=nx;moved=true;}
+    if(ny>-24.4 && ny<24.4 && !pointInsideObstacle(state.robot.x,ny,radius)){state.robot.y=ny;moved=true;}
+    return moved;
+  }
+  seedTraffic();
+
+  function resize(c,ctx){
+    const dpr=devicePixelRatio||1,r=c.getBoundingClientRect();
+    c.width=Math.max(1,Math.floor(r.width*dpr)); c.height=Math.max(1,Math.floor(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0); return {w:r.width,h:r.height};
+  }
+  function seg(px,py,dx,dy,ax,ay,bx,by){
+    const sx=bx-ax,sy=by-ay,den=dx*sy-dy*sx;
+    if(Math.abs(den)<1e-9)return Infinity;
+    const t=((ax-px)*sy-(ay-py)*sx)/den,u=((ax-px)*dy-(ay-py)*dx)/den;
+    return t>=0&&u>=0&&u<=1?t:Infinity;
+  }
+  function circleInterval(px,py,dx,dy,cx,cy,r){
+    const ox=px-cx,oy=py-cy;
+    const b=2*(dx*ox+dy*oy),c=ox*ox+oy*oy-r*r,disc=b*b-4*c;
+    if(disc<0)return null;
+    const s=Math.sqrt(disc),t1=(-b-s)/2,t2=(-b+s)/2;
+    const entry=Math.max(0,t1),exit=t2;
+    return exit>=entry?{entry,exit}:null;
+  }
+  function rectInterval(px,py,dx,dy,o){
+    let tmin=-Infinity,tmax=Infinity;
+    const axes=[
+      [px,dx,o.x,o.x+o.w],
+      [py,dy,o.y,o.y+o.h]
+    ];
+    for(const [p,d,min,max] of axes){
+      if(Math.abs(d)<1e-9){if(p<min||p>max)return null;continue;}
+      let a=(min-p)/d,b=(max-p)/d;if(a>b)[a,b]=[b,a];
+      tmin=Math.max(tmin,a);tmax=Math.min(tmax,b);
+      if(tmax<tmin)return null;
+    }
+    if(tmax<0)return null;
+    return {entry:Math.max(0,tmin),exit:tmax};
+  }
+  function orientedRectInterval(px,py,dx,dy,cx,cy,halfL,halfW,angle){
+    const c=Math.cos(angle),s=Math.sin(angle);
+    const ox=px-cx,oy=py-cy;
+    const lpx=ox*c+oy*s, lpy=-ox*s+oy*c;
+    const ldx=dx*c+dy*s, ldy=-dx*s+dy*c;
+    return rectInterval(lpx,lpy,ldx,ldy,{x:-halfL,y:-halfW,w:halfL*2,h:halfW*2});
+  }
+  function sphereInterval3D(px,py,pz,dx,dy,dz,cx,cy,cz,r){
+    const ox=px-cx,oy=py-cy,oz=pz-cz;
+    const b=2*(dx*ox+dy*oy+dz*oz);
+    const c=ox*ox+oy*oy+oz*oz-r*r;
+    const disc=b*b-4*c;
+    if(disc<0)return null;
+    const s=Math.sqrt(disc),t1=(-b-s)/2,t2=(-b+s)/2;
+    const entry=Math.max(0,t1),exit=t2;
+    return exit>=entry?{entry,exit}:null;
+  }
+  function buildingParts(o){return o.parts||[{x:o.x,y:o.y,w:o.w,h:o.h,z:o.z}];}
+
+  function cast3D(az,vertDeg){
+    const v=vertDeg*Math.PI/180;
+    const ch=Math.cos(v), sz=Math.sin(v);
+    const dx=Math.cos(az),dy=Math.sin(az);
+    let best=state.range,hit=null;
+    const EPS=1e-6;
+    function candidate(t3,x,y,z,type,surface,extra={}){
+      if(!isFinite(t3)||t3<=EPS||t3>=best||z<-.01)return;
+      if(z>8.0)return;
+      best=t3;hit={d:t3,rho:Math.hypot(x-state.robot.x,y-state.robot.y),a:az,v:vertDeg,x,y,z,type,surface,...extra};
+    }
+    // Ground plane is visible to downward beams unless occluded by a nearer surface.
+    if(sz<-EPS){
+      const tg=(-state.sensorZ)/sz;
+      if(tg>EPS && tg<=state.range){
+        const x=state.robot.x+dx*ch*tg, y=state.robot.y+dy*ch*tg;
+        candidate(tg,x,y,0,'ground','ground');
+      }
+    }
+    // Composite building footprints + roof service cores.
+    for(const o of state.obstacles){
+      for(const part of buildingParts(o)){
+        const it=rectInterval(state.robot.x,state.robot.y,dx,dy,part); if(!it)continue;
+        const te=it.entry/Math.max(ch,EPS), tx=it.exit/Math.max(ch,EPS);
+        const topZ=part.z??o.z;
+        if(sz<-EPS){
+          const tt=(topZ-state.sensorZ)/sz;
+          if(tt>te+EPS && tt<tx-EPS && tt<state.range){
+            const x=state.robot.x+dx*ch*tt, y=state.robot.y+dy*ch*tt;
+            candidate(tt,x,y,topZ,'static','top',{classTag:'building'});
+          }
+        }
+        const z=state.sensorZ+sz*te;
+        if(z>=0 && z<=topZ+0.001){
+          const x=state.robot.x+dx*ch*te, y=state.robot.y+dy*ch*te;
+          candidate(te,x,y,Math.max(0,Math.min(topZ,z)),'static','vertical',{classTag:'building'});
+        }
+      }
+      if(o.roof){
+        const r=o.roof,it=rectInterval(state.robot.x,state.robot.y,dx,dy,r); if(it){
+          const te=it.entry/Math.max(ch,EPS),tx=it.exit/Math.max(ch,EPS),topZ=r.z;
+          if(sz<-EPS){const tt=(topZ-state.sensorZ)/sz;if(tt>te+EPS&&tt<tx-EPS&&tt<state.range){const x=state.robot.x+dx*ch*tt,y=state.robot.y+dy*ch*tt;candidate(tt,x,y,topZ,'static','roof',{classTag:'building'});}}
+          const z=state.sensorZ+sz*te;if(z>=0&&z<=topZ+.001){const x=state.robot.x+dx*ch*te,y=state.robot.y+dy*ch*te;candidate(te,x,y,Math.max(0,Math.min(topZ,z)),'static','roof',{classTag:'building'});}
+        }
+      }
+    }
+    // Moving vehicles: oriented body prisms; pedestrians: body cylinder + head sphere.
+    for(const m of state.moving){
+      if(m.len){
+        const it=orientedRectInterval(state.robot.x,state.robot.y,dx,dy,m.x,m.y,m.len/2,m.wid/2,m.heading||0); if(!it)continue;
+        const te=it.entry/Math.max(ch,EPS),tx=it.exit/Math.max(ch,EPS);
+        if(sz<-EPS){const tt=(m.h-state.sensorZ)/sz;if(tt>te+EPS&&tt<tx-EPS&&tt<state.range){const x=state.robot.x+dx*ch*tt,y=state.robot.y+dy*ch*tt;candidate(tt,x,y,m.h,'moving','top',{classTag:'vehicle'});}}
+        const z=state.sensorZ+sz*te;if(z>=0&&z<=m.h+.001){const x=state.robot.x+dx*ch*te,y=state.robot.y+dy*ch*te;candidate(te,x,y,Math.max(0,Math.min(m.h,z)),'moving','vertical',{classTag:'vehicle'});}
+        // Raised cabin yields a more car-like point-cloud silhouette.
+        if(m.kind==='van' || m.kind==='car'){
+          const cabLen=m.len*(m.kind==='van'?.42:.34), cabW=m.wid*.84, cabH=m.h+.22;
+          const cang=m.heading||0, off=m.kind==='van'?-m.len*.05:m.len*.05;
+          const ccx=m.x+Math.cos(cang)*off, ccy=m.y+Math.sin(cang)*off;
+          const cit=orientedRectInterval(state.robot.x,state.robot.y,dx,dy,ccx,ccy,cabLen/2,cabW/2,cang);
+          if(cit){const ce=cit.entry/Math.max(ch,EPS),cxit=cit.exit/Math.max(ch,EPS);if(sz<-EPS){const tt=(cabH-state.sensorZ)/sz;if(tt>ce+EPS&&tt<cxit-EPS&&tt<state.range){const x=state.robot.x+dx*ch*tt,y=state.robot.y+dy*ch*tt;candidate(tt,x,y,cabH,'moving','top',{classTag:'vehicle'});}}const z=state.sensorZ+sz*ce;if(z>=0&&z<=cabH+.001){const x=state.robot.x+dx*ch*ce,y=state.robot.y+dy*ch*ce;candidate(ce,x,y,Math.max(0,Math.min(cabH,z)),'moving','vertical',{classTag:'vehicle'});}}
+        }
+      } else {
+        const rr=m.r||.25;
+        const it=circleInterval(state.robot.x,state.robot.y,dx,dy,m.x,m.y,rr); if(!it)continue;
+        const te=it.entry/Math.max(ch,EPS),tx=it.exit/Math.max(ch,EPS);
+        if(sz<-EPS){const tt=(m.h-state.sensorZ)/sz;if(tt>te+EPS&&tt<tx-EPS&&tt<state.range){const x=state.robot.x+dx*ch*tt,y=state.robot.y+dy*ch*tt;candidate(tt,x,y,m.h,'moving','top',{classTag:'pedestrian'});}}
+        const z=state.sensorZ+sz*te;if(z>=0&&z<=m.h+.001){const x=state.robot.x+dx*ch*te,y=state.robot.y+dy*ch*te;candidate(te,x,y,Math.max(0,Math.min(m.h,z)),'moving','vertical',{classTag:'pedestrian'});}
+        const headR=m.r*.62, headZ=Math.min(m.h-.12,1.45);
+        const sit=sphereInterval3D(state.robot.x,state.robot.y,state.sensorZ,dx*ch,dy*ch,sz,state.moving.indexOf(m),state.moving.indexOf(m),0,0); // no-op guard
+        void sit;
+        const hit2=sphereInterval3D(state.robot.x,state.robot.y,state.sensorZ,dx*ch,dy*ch,sz,m.x,m.y,headZ,headR);
+        if(hit2){const th=hit2.entry;if(th>EPS&&th<best&&th<state.range){const x=state.robot.x+dx*ch*th,y=state.robot.y+dy*ch*th,zv=state.sensorZ+sz*th;candidate(th,x,y,zv,'moving','head',{classTag:'pedestrian'});}}
+      }
+    }
+    // Vegetation: trunk cylinder plus several spherical foliage lobes.
+    for(const tr of state.trees){
+      const it=circleInterval(state.robot.x,state.robot.y,dx,dy,tr.x,tr.y,tr.trunkR); if(it){
+        const te=it.entry/Math.max(ch,EPS),tx=it.exit/Math.max(ch,EPS);
+        if(sz!==0){
+          const z=state.sensorZ+sz*te;
+          if(z>=0&&z<=tr.trunkH){const x=state.robot.x+dx*ch*te,y=state.robot.y+dy*ch*te;candidate(te,x,y,Math.max(0,Math.min(tr.trunkH,z)),'tree','trunk',{classTag:'tree'});}
+        }
+      }
+      const lobes=[
+        [tr.x,tr.y,tr.crownZ,tr.crownR],
+        [tr.x+tr.crownR*.36,tr.y-.08,tr.crownZ+.22,tr.crownR*.72],
+        [tr.x-tr.crownR*.30,tr.y+.10,tr.crownZ-.18,tr.crownR*.68]
+      ];
+      for(const [cx,cy,cz,cr] of lobes){
+        const sit=sphereInterval3D(state.robot.x,state.robot.y,state.sensorZ,dx*ch,dy*ch,sz,cx,cy,cz,cr); if(!sit)continue;
+        const th=sit.entry; if(th>EPS&&th<best&&th<state.range){const x=state.robot.x+dx*ch*th,y=state.robot.y+dy*ch*th,z=state.sensorZ+sz*th;candidate(th,x,y,z,'tree','canopy',{classTag:'tree'});}
+      }
+    }
+    if(!hit)return null;
+    const angleFactor=.5+.5*Math.cos(v);
+    const typeBase=hit.type==='moving'?.88:hit.type==='tree'?.74:hit.surface==='ground'?.38:.68;
+    const texture=.12*(.5+.5*Math.sin(hit.x*3.7+hit.y*5.1+hit.z*2.3+vertDeg*.17));
+    hit.intensity=Math.max(0,Math.min(1,typeBase*angleFactor+texture));
+    return hit;
+  }
+  function scan(){
+    state.scan=[]; state.cloud=[];
+    const centerV=0;
+    const vAngles=[];
+    for(let i=0;i<state.verticalChannels;i++)vAngles.push(-18 + i*(36/(state.verticalChannels-1)));
+    let bestCenterDelta=Infinity;
+    for(let i=0;i<state.rays;i++){
+      const a=-Math.PI+i*(2*Math.PI/state.rays);
+      let centerHit=null;
+      for(const va of vAngles){
+        const p=cast3D(a,va);
+        if(!p)continue;
+        p.i=i; p.ch=vAngles.indexOf(va);
+        state.cloud.push(p);
+        const delta=Math.abs(va-centerV);
+        if(delta<bestCenterDelta){bestCenterDelta=delta;centerHit=p;}
+      }
+      if(centerHit)state.scan.push(centerHit);
+      bestCenterDelta=Infinity;
+    }
+    const max=state.cloud.length?Math.max(...state.cloud.map(p=>p.z)):0;
+    document.getElementById('returnsVal').textContent=state.cloud.length.toLocaleString();
+    document.getElementById('heightVal').textContent=`0–${max.toFixed(1)} m`;
+    analyzeCloud();
+  }
+  function worldScale(w,h){return Math.min(w/state.worldW,h/state.worldH)}
+  function w2s(x,y,w,h){const s=worldScale(w,h);return{x:w/2+x*s,y:h/2-y*s}}
+
+  function pointInsideObstacle(x,y,margin=0){
+    const inBuilding=state.obstacles.some(o=>buildingParts(o).some(p=>x>p.x-margin&&x<p.x+p.w+margin&&y>p.y-margin&&y<p.y+p.h+margin));
+    if(inBuilding)return true;
+    return state.trees.some(t=>Math.hypot(x-t.x,y-t.y)<t.crownR+margin);
+  }
+  function metersToFt(m){return m*3.28084;}
+  function fovUpperZ(rho){return state.sensorZ+Math.tan(18*Math.PI/180)*rho;}
+  function cellSizeForRho(rho){return rho<5?.5:rho<10?1:rho<15?2.5:5;}
+  function bandForRho(rho){return rho<5?'0–5 m / 5 cm':rho<10?'5–10 m / 10 cm':rho<15?'10–15 m / 25 cm':'15–18 m / 50 cm';}
+  function roundedLabel(ctx,x,y,text,fill='rgba(3,9,15,.86)',stroke='rgba(126,192,220,.35)',color='#dce8f7'){
+    ctx.font='bold 8px Segoe UI';const padX=6,w=ctx.measureText(text).width+padX*2,h=18;
+    const bx=Math.max(4,Math.min(ctx.canvas.clientWidth-w-4,x-w/2)),by=Math.max(4,Math.min(ctx.canvas.clientHeight-h-4,y-h));
+    ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(bx,by,w,h,6);ctx.fill();ctx.stroke();
+    ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,bx+w/2,by+h/2+.5);ctx.textBaseline='alphabetic';
+  }
+  function analyzeCloud(){
+    const bins=new Map(), cell=1.0;
+    for(const p of state.cloud){
+      if(p.surface==='ground'||p.z<.28) continue;
+      const dx=p.x-state.robot.x, dy=p.y-state.robot.y;
+      if(Math.hypot(dx,dy)>state.range) continue;
+      const bx=Math.floor(dx/cell), by=Math.floor(dy/cell), key=`${bx},${by}`;
+      let b=bins.get(key); if(!b){b={bx,by,n:0,maxZ:0,minZ:99,sumX:0,sumY:0,moving:0};bins.set(key,b)}
+      b.n++; b.maxZ=Math.max(b.maxZ,p.z); b.minZ=Math.min(b.minZ,p.z); b.sumX+=p.x; b.sumY+=p.y; if(p.type==='moving')b.moving++;
+    }
+    const active=new Set([...bins.entries()].filter(([,b])=>b.n>=2).map(([k])=>k));
+    const seen=new Set(), comps=[];
+    for(const start of active){
+      if(seen.has(start))continue;
+      const q=[start];seen.add(start);const members=[];
+      while(q.length){
+        const key=q.pop(), b=bins.get(key);members.push(b);const [bx,by]=key.split(',').map(Number);
+        for(const [nx,ny] of [[bx+1,by],[bx-1,by],[bx,by+1],[bx,by-1]]){
+          const nk=`${nx},${ny}`;if(active.has(nk)&&!seen.has(nk)){seen.add(nk);q.push(nk)}
+        }
+      }
+      if(members.length<2)continue;
+      const n=members.reduce((a,b)=>a+b.n,0);
+      const maxZ=Math.max(...members.map(b=>b.maxZ));
+      const sumX=members.reduce((a,b)=>a+b.sumX,0),sumY=members.reduce((a,b)=>a+b.sumY,0);
+      const mx=sumX/n,my=sumY/n,rho=Math.hypot(mx-state.robot.x,my-state.robot.y);
+      const moving=members.some(b=>b.moving>0);
+      comps.push({x:mx,y:my,rho,maxZ,count:n,moving,partial:maxZ>=Math.max(.8,fovUpperZ(rho)-.35)});
+    }
+    comps.sort((a,b)=>b.maxZ-a.maxZ || b.count-a.count);
+    state.clusters=comps.slice(0,8);
+    const tall=state.clusters[0]?.maxZ||0;
+    document.getElementById('clusterVal').textContent=state.clusters.length;
+    document.getElementById('observedTop').textContent=`${tall.toFixed(1)} m / ${metersToFt(tall).toFixed(1)} ft`;
+    document.getElementById('fovCeiling').textContent=`FOV ceiling @ 18 m: ${fovUpperZ(18).toFixed(1)} m / ${metersToFt(fovUpperZ(18)).toFixed(1)} ft`;
+  }
+
+  function grid(ctx,w,h){
+    ctx.strokeStyle='rgba(76,115,150,.16)';ctx.lineWidth=1;
+    const s=worldScale(w,h);
+    for(let x=-15;x<=15;x++){const p=w2s(x,0,w,h);ctx.beginPath();ctx.moveTo(p.x,0);ctx.lineTo(p.x,h);ctx.stroke()}
+    for(let y=-11;y<=11;y++){const p=w2s(0,y,w,h);ctx.beginPath();ctx.moveTo(0,p.y);ctx.lineTo(w,p.y);ctx.stroke()}
+  }
+
+  function drawWorld(){
+    const {w,h}=resize(world,wc);wc.fillStyle='#06101a';wc.fillRect(0,0,w,h);
+    const s=worldScale(w,h);
+    // GTA-style district road grid behind the buildings.
+    for(const x of [-30,-20,-10,0,10,20,30]){
+      const p1=w2s(x,-25,w,h),p2=w2s(x,25,w,h);
+      wc.strokeStyle='rgba(21,33,47,.98)';wc.lineWidth=7*s;wc.beginPath();wc.moveTo(p1.x,p1.y);wc.lineTo(p2.x,p2.y);wc.stroke();
+      wc.strokeStyle='rgba(116,143,165,.18)';wc.lineWidth=1*s;wc.setLineDash([8,8]);wc.beginPath();wc.moveTo(p1.x,p1.y);wc.lineTo(p2.x,p2.y);wc.stroke();wc.setLineDash([]);
+    }
+    for(const y of [-20,-10,0,10,20]){
+      const p1=w2s(-34,y,w,h),p2=w2s(34,y,w,h);
+      wc.strokeStyle='rgba(21,33,47,.98)';wc.lineWidth=7*s;wc.beginPath();wc.moveTo(p1.x,p1.y);wc.lineTo(p2.x,p2.y);wc.stroke();
+      wc.strokeStyle='rgba(116,143,165,.18)';wc.lineWidth=1*s;wc.setLineDash([8,8]);wc.beginPath();wc.moveTo(p1.x,p1.y);wc.lineTo(p2.x,p2.y);wc.stroke();wc.setLineDash([]);
+    }
+    // Subtle lane guides for route-following traffic.
+    wc.strokeStyle='rgba(214,228,238,.10)';wc.lineWidth=1;wc.setLineDash([5,6]);
+    for(const y of [-1.45,1.45,11.45,-11.45]){const p1=w2s(-34,y,w,h),p2=w2s(34,y,w,h);wc.beginPath();wc.moveTo(p1.x,p1.y);wc.lineTo(p2.x,p2.y);wc.stroke();}
+    for(const x of [-11.45,11.45,6.85,-6.85]){const p1=w2s(x,-25,w,h),p2=w2s(x,25,w,h);wc.beginPath();wc.moveTo(p1.x,p1.y);wc.lineTo(p2.x,p2.y);wc.stroke();}
+    wc.setLineDash([]);
+    wc.strokeStyle='rgba(76,115,150,.12)';wc.lineWidth=1;
+    for(let x=-30;x<=30;x+=5){const p=w2s(x,0,w,h);wc.beginPath();wc.moveTo(p.x,0);wc.lineTo(p.x,h);wc.stroke()}
+    for(let y=-20;y<=20;y+=5){const p=w2s(0,y,w,h);wc.beginPath();wc.moveTo(0,p.y);wc.lineTo(w,p.y);wc.stroke()}
+
+    // Ground-truth scene: real-looking footprints, rooftops and vegetation. This panel shows full geometry.
+    for(const o of state.obstacles){
+      for(const part of buildingParts(o)){
+        const p=w2s(part.x,part.y+part.h,w,h);
+        wc.fillStyle='rgba(151,104,59,.88)';wc.strokeStyle='rgba(243,202,132,.84)';wc.lineWidth=1.1;
+        wc.fillRect(p.x,p.y,part.w*s,part.h*s);wc.strokeRect(p.x,p.y,part.w*s,part.h*s);
+        // Facade blocks / roof plate.
+        wc.fillStyle='rgba(8,18,29,.38)';wc.fillRect(p.x+2,p.y+2,Math.max(4,part.w*s-4),Math.max(4,part.h*s-4));
+        const cols=Math.max(2,Math.floor(part.w/1.6)), rows=Math.max(2,Math.floor(part.h/1.8));
+        wc.fillStyle='rgba(113,190,220,.20)';
+        for(let ix=1;ix<cols;ix++){const xx=p.x+ix*(part.w*s/cols);wc.fillRect(xx-0.35,p.y+3,.7,Math.max(2,part.h*s-6));}
+        for(let iy=1;iy<rows;iy++){const yy=p.y+iy*(part.h*s/rows);wc.fillRect(p.x+3,yy-0.35,Math.max(2,part.w*s-6),.7);}
+      }
+      if(o.roof){const r=o.roof,p=w2s(r.x,r.y+r.h,w,h);wc.fillStyle='rgba(26,43,55,.86)';wc.strokeStyle='rgba(183,208,224,.50)';wc.fillRect(p.x,p.y,r.w*s,r.h*s);wc.strokeRect(p.x,p.y,r.w*s,r.h*s);}
+      const labelP=w2s(o.x,o.y+o.h,w,h);wc.fillStyle='#f1ddb4';wc.font='7px Segoe UI';wc.fillText(`${o.id} • ${o.z.toFixed(0)}m/${metersToFt(o.z).toFixed(0)}ft`,labelP.x+3,labelP.y+10);
+    }
+    // Trees: trunk + canopy clusters.
+    for(const tr of state.trees){
+      const p=w2s(tr.x,tr.y,w,h), rr=tr.crownR*s;
+      wc.fillStyle='rgba(108,77,43,.95)';wc.fillRect(p.x-tr.trunkR*s,p.y-tr.trunkR*s,.2*s,Math.max(4,tr.trunkH*s));
+      wc.fillStyle='rgba(44,127,76,.76)';wc.beginPath();wc.arc(p.x,p.y-tr.crownZ*.25*s,rr,0,Math.PI*2);wc.fill();
+      wc.fillStyle='rgba(79,165,91,.48)';wc.beginPath();wc.arc(p.x-rr*.35,p.y-tr.crownZ*.30*s,rr*.68,0,Math.PI*2);wc.fill();
+      wc.beginPath();wc.arc(p.x+rr*.33,p.y-tr.crownZ*.20*s,rr*.62,0,Math.PI*2);wc.fill();
+    }
+    // Dynamic traffic / pedestrians: oriented vehicle silhouettes and human forms.
+    for(const m of state.moving){
+      const p=w2s(m.x,m.y,w,h);
+      wc.save();wc.translate(p.x,p.y);wc.rotate(-(m.heading||0));
+      if(m.len){
+        wc.fillStyle=m.kind==='van'?'#e35d43':'#e04e64';wc.strokeStyle='#ffd6dc';wc.lineWidth=.8;
+        wc.beginPath();wc.roundRect(-m.len*s/2,-m.wid*s/2,m.len*s,m.wid*s,Math.max(.18*s,.32*s));wc.fill();wc.stroke();
+        wc.fillStyle='rgba(120,205,228,.55)';wc.fillRect(-m.len*s*.13,-m.wid*s*.35,m.len*s*.38,m.wid*s*.70);
+        wc.fillStyle='rgba(21,31,38,.9)';wc.fillRect(-m.len*s*.41,-m.wid*s*.57,.42*s,.22*s);wc.fillRect(m.len*s*.41-.42*s,-m.wid*s*.57,.42*s,.22*s);wc.fillRect(-m.len*s*.41,m.wid*s*.35,.42*s,.22*s);wc.fillRect(m.len*s*.41-.42*s,m.wid*s*.35,.42*s,.22*s);
+      } else {
+        const rr=(m.r||.27)*s;wc.fillStyle='#ff7083';wc.beginPath();wc.arc(0,.35*s,rr*.70,0,Math.PI*2);wc.fill();
+        wc.fillStyle='#f2c9b1';wc.beginPath();wc.arc(0,-.55*s,rr*.46,0,Math.PI*2);wc.fill();
+      }
+      wc.restore();
+    }
+    if(state.path.length>1){wc.strokeStyle='rgba(92,255,157,.56)';wc.lineWidth=2;wc.beginPath();state.path.forEach((pt,i)=>{const p=w2s(pt.x,pt.y,w,h);if(i===0)wc.moveTo(p.x,p.y);else wc.lineTo(p.x,p.y)});wc.stroke()}
+    const rp=w2s(state.robot.x,state.robot.y,w,h);
+    wc.beginPath();wc.arc(rp.x,rp.y,7,0,Math.PI*2);wc.fillStyle='#5cff9d';wc.fill();wc.strokeStyle='#e5fff0';wc.stroke();
+    const hd=22;wc.strokeStyle='#5cff9d';wc.lineWidth=2;wc.beginPath();wc.moveTo(rp.x,rp.y);wc.lineTo(rp.x+Math.cos(state.robot.a)*hd,rp.y-Math.sin(state.robot.a)*hd);wc.stroke();
+    wc.fillStyle='#dfffea';wc.font='bold 9px Segoe UI';wc.fillText('DEMO-01',rp.x+8,rp.y+4);
+    wc.fillStyle='rgba(2,8,14,.78)';wc.fillRect(10,10,208,76);wc.strokeStyle='rgba(92,198,255,.22)';wc.strokeRect(10,10,208,76);
+    wc.fillStyle='#e9f5ff';wc.font='bold 10px Segoe UI';wc.fillText('CITY BLOCK / GROUND TRUTH',18,26);
+    wc.fillStyle='#9eb6c9';wc.font='8px Segoe UI';wc.fillText('Buildings are solid / non-enterable collision volumes.',18,41);wc.fillText('Traffic follows lane routes; pedestrians use sidewalks.',18,54);wc.fillText('LiDAR map only shows sensor-visible returns.',18,67);
+    wc.fillStyle='#7ee0ff';wc.fillText(`68 × 50 m district • 18 m sensing radius • ${state.moving.length} live movers`,18,80);
+  }
+
+  function drawLidar(){
+    const {w,h}=resize(lidar,lc);lc.fillStyle='#06101b';lc.fillRect(0,0,w,h);
+    const cx=w/2,cy=h/2,R=Math.min(w,h)*.39;
+    // Straight north-up sensor frame: N=0°, E=90°, S=180°, W=270°.
+    for(let k=1;k<=4;k++){lc.beginPath();lc.arc(cx,cy,R*k/4,0,Math.PI*2);lc.strokeStyle='rgba(80,130,170,.18)';lc.stroke()}
+    for(let i=0;i<8;i++){const a=i*Math.PI/4;lc.beginPath();lc.moveTo(cx,cy);lc.lineTo(cx+Math.sin(a)*R,cy-Math.cos(a)*R);lc.strokeStyle=i%2===0?'rgba(80,130,170,.12)':'rgba(80,130,170,.07)';lc.stroke()}
+    // Fixed Cartesian axes with arrowheads.
+    lc.strokeStyle='rgba(180,213,235,.28)';lc.lineWidth=1;lc.beginPath();lc.moveTo(cx-R,cy);lc.lineTo(cx+R,cy);lc.moveTo(cx,cy-R);lc.lineTo(cx,cy+R);lc.stroke();
+    for(const p of state.scan){
+      const rr=p.d/state.range*R;
+      const bearing=(Math.PI/2-p.a+Math.PI*2)%(Math.PI*2);
+      const x=cx+Math.sin(bearing)*rr,y=cy-Math.cos(bearing)*rr;
+      lc.beginPath();lc.arc(x,y,p.type==='moving'?2.15:1.1,0,Math.PI*2);
+      let col=p.d>state.range*.65?'#ffb454':p.d>state.range*.3?'#9e8cff':'#35d7ff';if(p.type==='moving')col='#ff5d73';if(p.type==='tree')col='#79d48a';
+      lc.fillStyle=col;lc.fill();
+    }
+    lc.beginPath();lc.arc(cx,cy,5,0,Math.PI*2);lc.fillStyle='#5cff9d';lc.fill();
+    lc.font='bold 10px Segoe UI';lc.textAlign='center';
+    [['N',0,-1],['E',1,0],['S',0,1],['W',-1,0]].forEach(([lab,dx,dy])=>{lc.fillStyle=lab==='N'?'#f2fbff':'#9eb6c9';lc.fillText(lab,cx+dx*(R+14),cy+dy*(R+14)+4)});
+    lc.fillStyle='#7ee0ff';lc.font='8px Segoe UI';lc.fillText('0°',cx,cy-R-20);lc.fillText('90°',cx+R+26,cy+3);lc.fillText('180°',cx,cy+R+20);lc.fillText('270°',cx-R-26,cy+3);
+    lc.fillStyle='#89a0ba';lc.font='8px Segoe UI';lc.fillText('NORTH-UP • STRAIGHT AXES',cx,16);
+  }
+
+  // Isometric projection for 2.5D: XY is the footprint, Z becomes vertical screen displacement.
+  function iso(x,y,z,scale,cx,cy){
+    const ix=(x-y)*scale;
+    const iy=(x+y)*scale*0.48 - z*scale*0.95;
+    return {x:cx+ix,y:cy+iy};
+  }
+
+  function polyTop(x,y,w,h,z,scale,cx,cy){
+    return [
+      iso(x,y+h,z,scale,cx,cy),
+      iso(x+w,y+h,z,scale,cx,cy),
+      iso(x+w,y,z,scale,cx,cy),
+      iso(x,y,z,scale,cx,cy)
+    ];
+  }
+
+  function drawPoly(ctx,pts,fill,stroke){
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();
+    ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.stroke();
+  }
+
+  function drawIsoMap(){
+    const {w,h}=resize(map,mc);
+    mc.fillStyle='#03080d';mc.fillRect(0,0,w,h);
+
+    // ------------------------------------------------------------------
+    // RAW LiDAR-STYLE DISPLAY
+    // The scene is represented by the actual first-return points generated
+    // by a multi-beam sensor model. No vertical columns, solid walls, or
+    // inferred object meshes are rendered here. Height emerges naturally
+    // because returns occupy their measured XYZ positions.
+    // ------------------------------------------------------------------
+    const cx=w*.50, cy=h*.59;
+    const R=Math.min(w,h)*.40;
+    const baseScale=R/state.range;
+    const Z_SCALE=0.95;
+
+    function project(p){
+      const dx=p.x-state.robot.x,dy=p.y-state.robot.y;
+      const rho=Math.hypot(dx,dy);
+      const perspective=1/(1+0.0105*rho);
+      return {
+        x:cx + dx*baseScale*perspective,
+        y:cy - dy*baseScale*0.86*perspective - p.z*baseScale*Z_SCALE*perspective,
+        depth:rho + p.z*.15
+      };
+    }
+    function groundPoint(dx,dy){return{x:cx+dx*baseScale,y:cy-dy*baseScale*.86}}
+    function colorFor(p,maxH){
+      // Real LiDAR viewers commonly allow range/intensity/reflectivity-like
+      // color transforms. This default keeps Z visible while remaining a
+      // point cloud rather than a synthetic surface.
+      const t=Math.max(0,Math.min(1,p.z/(Math.max(maxH,0.5))));
+      const stops=[[0,[45,196,255]],[.28,[58,230,208]],[.52,[102,255,160]],[.75,[255,205,92]],[1,[255,100,82]]];
+      let a=stops[0],b=stops[stops.length-1];
+      for(let i=0;i<stops.length-1;i++)if(t>=stops[i][0]&&t<=stops[i+1][0]){a=stops[i];b=stops[i+1];break;}
+      const u=(t-a[0])/(b[0]-a[0]||1);
+      const rgb=a[1].map((v,i)=>Math.round(v+(b[1][i]-v)*u));
+      const alpha=p.rho<5?.95:p.rho<10?.82:p.rho<15?.68:.56;
+      if(p.surface==='ground') return `rgba(${Math.round(rgb[0]*.72)},${Math.round(rgb[1]*.82)},${Math.round(rgb[2]*.95)},${alpha*.72})`;
+      if(p.type==='moving') return `rgba(255,95,120,${Math.min(1,alpha+.12)})`;
+      if(p.type==='tree') return `rgba(105,210,128,${Math.min(1,alpha+.06)})`;
+      return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+    }
+
+    // Soft range rings on the ground are a real sensor-display convention;
+    // they do not represent geometry and therefore do not invent surfaces.
+    for(const r of [5,10,15,18]){
+      const rr=r*baseScale;
+      mc.beginPath();mc.arc(cx,cy,rr,0,Math.PI*2);
+      mc.strokeStyle=r===5?'rgba(53,215,255,.24)':'rgba(103,139,165,.13)';
+      mc.lineWidth=r===5?1.15:.7;mc.setLineDash([4,7]);mc.stroke();mc.setLineDash([]);
+      mc.fillStyle='rgba(137,160,186,.48)';mc.font='8px Segoe UI';mc.textAlign='left';mc.fillText(`${r} m`,cx+5,cy-rr+11);
+    }
+    // North-up coordinate frame.
+    mc.strokeStyle='rgba(87,118,145,.11)';mc.lineWidth=.6;
+    for(let d=-18;d<=18;d+=2){
+      const a=groundPoint(-18,d),b=groundPoint(18,d);mc.beginPath();mc.moveTo(a.x,a.y);mc.lineTo(b.x,b.y);mc.stroke();
+      const c=groundPoint(d,-18),e=groundPoint(d,18);mc.beginPath();mc.moveTo(c.x,c.y);mc.lineTo(e.x,e.y);mc.stroke();
+    }
+    mc.font='bold 11px Segoe UI';mc.textAlign='center';
+    [['N',0,18],['E',18,0],['S',0,-18],['W',-18,0]].forEach(([lab,x,y])=>{
+      const p=groundPoint(x,y);mc.fillStyle=lab==='N'?'#f2fbff':'#8da5ba';mc.fillText(lab,p.x,p.y);
+    });
+
+    // ------------------------------------------------------------------
+    // Adaptive 2.5D sampling scaffold.
+    // The raw points remain the primary source. These subtle cells indicate
+    // the map resolution that will store/aggregate those observations.
+    // ------------------------------------------------------------------
+    const cells=new Map();
+    for(const p of state.cloud){
+      const dx=p.x-state.robot.x,dy=p.y-state.robot.y,rho=Math.hypot(dx,dy); if(rho>state.range) continue;
+      const cs=cellSizeForRho(rho), ix=Math.floor(dx/cs),iy=Math.floor(dy/cs),key=`${cs}|${ix}|${iy}`;
+      if(!cells.has(key))cells.set(key,{cs,ix,iy,rho,maxZ:p.z, moving:p.type==='moving'});
+      else {const c=cells.get(key);c.maxZ=Math.max(c.maxZ,p.z);c.moving ||= p.type==='moving';}
+    }
+    const bandStyle={.5:['rgba(53,215,255,.055)','rgba(53,215,255,.34)'],1:['rgba(92,255,157,.042)','rgba(92,255,157,.28)'],2.5:['rgba(255,180,84,.038)','rgba(255,180,84,.24)'],5:['rgba(158,140,255,.035)','rgba(158,140,255,.22)']};
+    for(const c of cells.values()){
+      const gx=c.ix*c.cs, gy=c.iy*c.cs, x0=groundPoint(gx,gy), x1=groundPoint(gx+c.cs,gy), x2=groundPoint(gx+c.cs,gy+c.cs), x3=groundPoint(gx,gy+c.cs);
+      const st=bandStyle[c.cs];
+      mc.beginPath();mc.moveTo(x0.x,x0.y);mc.lineTo(x1.x,x1.y);mc.lineTo(x2.x,x2.y);mc.lineTo(x3.x,x3.y);mc.closePath();
+      mc.fillStyle=st[0];mc.fill();mc.strokeStyle=st[1];mc.lineWidth=.55;mc.stroke();
+    }
+
+    const points=state.cloud.slice();
+    const maxH=points.length?Math.max(...points.map(p=>p.z)):0;
+    // Painter-sort: far points first, so nearby returns read as a real 3D cloud.
+    points.sort((a,b)=>b.rho-a.rho || a.z-b.z);
+    for(const p of points){
+      const q=project(p);
+      const near=p.rho<5,mid=p.rho<10;
+      const size=p.type==='tree'?(near?1.8:mid?1.35:1.0):(near?1.65:mid?1.25:.92);
+      mc.globalAlpha=1;
+      mc.fillStyle=colorFor(p,maxH);
+      // Raw LiDAR displays are point samples; render small round/square surfels,
+      // never lines between returns.
+      mc.fillRect(q.x-size*.5,q.y-size*.5,size,size);
+      if(near && p.surface!=='ground' && p.z>1.6){
+        mc.fillStyle=p.type==='tree'?'rgba(210,255,216,.28)':'rgba(255,255,255,.35)';mc.fillRect(q.x-.35,q.y-.35,.7,.7);
+      }
+    }
+
+    // Cluster selection is kept as a subtle visual ring only. Numeric cluster
+    // callouts were removed so the 2.5D view stays focused on the raw LiDAR
+    // point cloud instead of overlaying yellow text on the returns.
+    for(let i=0;i<Math.min(5,state.clusters.length);i++){
+      const c=state.clusters[i];
+      if(c.rho>state.range || i!==state.selectedCluster)continue;
+      const z=Math.max(.25,c.maxZ), q=project({x:c.x,y:c.y,z,rho:c.rho});
+      mc.beginPath();
+      mc.arc(q.x,q.y,15,0,Math.PI*2);
+      mc.strokeStyle='rgba(255,241,173,.7)';
+      mc.lineWidth=1.4;
+      mc.stroke();
+    }
+
+    // A faint live scan sector shows the sensor is currently spinning.
+    const sweep=state.mapTime*3.4;
+    mc.beginPath();mc.moveTo(cx,cy);mc.arc(cx,cy,baseScale*2.2,sweep-.045,sweep+.045);mc.closePath();
+    mc.fillStyle='rgba(92,255,157,.08)';mc.fill();
+    mc.strokeStyle='rgba(92,255,157,.42)';mc.lineWidth=1;mc.beginPath();mc.moveTo(cx,cy);mc.lineTo(cx+Math.cos(sweep)*baseScale*2.2,cy-Math.sin(sweep)*baseScale*2.2);mc.stroke();
+
+    // Sensor origin + heading. Heading rotates; map orientation does not.
+    mc.beginPath();mc.arc(cx,cy,5.5,0,Math.PI*2);mc.fillStyle='#5cff9d';mc.fill();
+    mc.beginPath();mc.arc(cx,cy,13,0,Math.PI*2);mc.strokeStyle='rgba(92,255,157,.28)';mc.lineWidth=1;mc.stroke();
+    const headingLen=38;
+    const hx=cx+Math.cos(state.robot.a-Math.PI/2)*headingLen;
+    const hy=cy+Math.sin(state.robot.a-Math.PI/2)*headingLen;
+    mc.strokeStyle='rgba(92,255,157,.84)';mc.lineWidth=2.3;mc.beginPath();mc.moveTo(cx,cy);mc.lineTo(hx,hy);mc.stroke();
+    mc.fillStyle='rgba(92,255,157,.9)';mc.beginPath();mc.arc(hx,hy,3,0,Math.PI*2);mc.fill();
+
+    // Z scale: this is a measurement aid, not geometry.
+    const rulerX=w-48,rulerBottom=h-66,rulerH=Math.min(170,Math.max(110,h*.28)),rulerTop=rulerBottom-rulerH;
+    mc.fillStyle='rgba(3,8,13,.85)';mc.fillRect(rulerX-28,rulerTop-22,58,rulerH+43);
+    mc.strokeStyle='rgba(109,139,163,.25)';mc.strokeRect(rulerX-28,rulerTop-22,58,rulerH+43);
+    mc.strokeStyle='rgba(255,221,126,.9)';mc.lineWidth=1.7;mc.beginPath();mc.moveTo(rulerX,rulerBottom);mc.lineTo(rulerX,rulerTop);mc.stroke();
+    const topM=Math.max(1,Math.ceil(maxH));
+    for(let v=0;v<=topM;v++){
+      const yy=rulerBottom-rulerH*(v/topM);
+      mc.strokeStyle='rgba(255,221,126,.75)';mc.lineWidth=1;mc.beginPath();mc.moveTo(rulerX-5,yy);mc.lineTo(rulerX+7,yy);mc.stroke();
+      mc.fillStyle='#e9d89a';mc.font='8px Segoe UI';mc.textAlign='right';mc.fillText(`${v}m`,rulerX-9,yy+3);
+    }
+    mc.fillStyle='#f5e6aa';mc.font='bold 8px Segoe UI';mc.textAlign='center';mc.fillText('Z',rulerX,rulerTop-10);mc.fillText('HEIGHT',rulerX,rulerTop-1);
+
+    // Compact raw-data readout.
+    const cardX=12,cardY=14,cardW=Math.min(315,w*.42),cardH=94;
+    mc.fillStyle='rgba(2,8,14,.84)';mc.fillRect(cardX,cardY,cardW,cardH);
+    mc.strokeStyle='rgba(92,198,255,.22)';mc.strokeRect(cardX,cardY,cardW,cardH);
+    mc.fillStyle='#edf6ff';mc.font='bold 11px Segoe UI';mc.textAlign='left';mc.fillText('RAW LiDAR RETURN CLOUD',cardX+10,cardY+17);
+    mc.fillStyle='#7ee0ff';mc.font='bold 18px Segoe UI';mc.fillText(points.length.toLocaleString(),cardX+10,cardY+39);
+    mc.fillStyle='#9eb4c7';mc.font='8px Segoe UI';mc.fillText('visible first returns / current frame',cardX+10,cardY+51);
+    mc.fillStyle='#c5d7e7';mc.fillText(`vertical channels: ${state.verticalChannels}  •  azimuth samples: ${state.rays}`,cardX+10,cardY+66);
+    mc.fillStyle='#9eb4c7';mc.fillText('raw XYZ + FOV-limited visibility + adaptive cell scaffold',cardX+10,cardY+80);
+
+    // Adaptive resolution legend as a display cue; raw points remain the source data.
+    const lx=12,ly=h-83;
+    mc.fillStyle='rgba(2,6,10,.82)';mc.fillRect(lx-6,ly-18,244,70);
+    mc.strokeStyle='rgba(115,145,170,.22)';mc.strokeRect(lx-6,ly-18,244,70);
+    mc.fillStyle='#dce8f7';mc.font='bold 9px Segoe UI';mc.fillText('ADAPTIVE MAP SAMPLING',lx,ly-2);
+    [['0–5 m','5 cm','#35d7ff'],['5–10 m','10 cm','#5cff9d'],['10–15 m','25 cm','#ffb454'],['15–18 m','50 cm','#9e8cff']].forEach((r,i)=>{
+      const yy=ly+12+i*13;mc.fillStyle=r[2];mc.fillRect(lx,yy-7,8,8);mc.fillStyle='#c9d9e8';mc.font='8px Segoe UI';mc.fillText(r[0],lx+12,yy);mc.fillText(r[1],lx+94,yy);mc.fillStyle='rgba(201,217,232,.55)';mc.fillText(i<2?'FINE':i===2?'MID':'COARSE',lx+142,yy);
+    });
+
+    mc.fillStyle='rgba(92,255,157,.92)';mc.font='9px Segoe UI';mc.textAlign='left';mc.fillText(`● SENSOR ORIGIN • ${points.length.toLocaleString()} RAW RETURNS`,12,h-9);
+    mc.textAlign='right';mc.fillStyle='rgba(137,160,186,.88)';mc.fillText('N ↑  •  S ↓  •  E →  •  W ←  •  CELL SIZE = DISTANCE',w-12,h-9);mc.textAlign='left';
+  }
+
+  function update(dt){
+    state.mapTime += dt;
+    let dx=0,dy=0;
+    if(state.keys.w||state.keys.arrowup)dy+=1;
+    if(state.keys.s||state.keys.arrowdown)dy-=1;
+    if(state.keys.a||state.keys.arrowleft)dx-=1;
+    if(state.keys.d||state.keys.arrowright)dx+=1;
+    if(dx||dy){
+      const len=Math.hypot(dx,dy)||1; dx/=len; dy/=len;
+      const nx=state.robot.x+dx*state.robot.speed*dt, ny=state.robot.y+dy*state.robot.speed*dt;
+      tryMoveRobot(nx,ny,.58);
+      state.robot.a=Math.atan2(dy,dx);
+    }
+    const lastPt=state.path[state.path.length-1];
+    if(!lastPt || Math.hypot(lastPt.x-state.robot.x,lastPt.y-state.robot.y)>.10){
+      state.path.push({x:state.robot.x,y:state.robot.y});
+      if(state.path.length>500) state.path.shift();
+    }
+    state.trafficClock+=dt; state.pedestrianClock+=dt;
+    if(state.trafficClock>=1.15){
+      const route=state.carRoutes[Math.floor(Math.random()*state.carRoutes.length)];
+      spawnActor(route,'car',Math.random()<.5); state.trafficClock=0;
+    }
+    if(state.pedestrianClock>=0.72){
+      const route=state.pedRoutes[Math.floor(Math.random()*state.pedRoutes.length)];
+      spawnActor(route,'ped',Math.random()<.5); state.pedestrianClock=0;
+    }
+    const survivors=[];
+    for(const m of state.moving){
+      let targetSpeed=m.speedLimit;
+      if(m.kind==='car'){
+        for(const other of state.moving){
+          if(other===m||!sameFlowAhead(m,other)) continue;
+          const ds=routeProgress(other)-routeProgress(m), safe=4.4+(m.len||4)*.65;
+          if(ds<safe) targetSpeed=Math.min(targetSpeed,.15);
+          else if(ds<safe+4.5) targetSpeed=Math.min(targetSpeed,m.speedLimit*.38);
+          else if(ds<safe+7.5) targetSpeed=Math.min(targetSpeed,m.speedLimit*.68);
+        }
+      }
+      const exiting=advanceOnRoute(m,targetSpeed*dt);
+      if(exiting){if(m.kind==='car') state.trafficOut++; else state.pedestriansOut++; continue;}
+      const pose=routeSample(m.route,m.seg,m.t);
+      m.x=pose.x; m.y=pose.y; m.heading=pose.heading;
+      m.vx=Math.cos(m.heading)*targetSpeed; m.vy=Math.sin(m.heading)*targetSpeed;
+      survivors.push(m);
+    }
+    state.moving=survivors;
+  }
+
+  function frame(t){
+    const dt=Math.min(.04,(t-state.last)/1000);state.last=t;update(dt);scan();
+
+    // Keep a lightweight temporal statistic only; the map itself renders the current raw cloud.
+    if(state.cloud.length) state.mappedReturns.push({count:state.cloud.length,t:state.mapTime});
+    if(state.mappedReturns.length>240) state.mappedReturns.splice(0,state.mappedReturns.length-240);
+
+    drawWorld();drawLidar();drawIsoMap();
+    state.fps=.92*state.fps+.08*(1/Math.max(dt,.001));
+    document.getElementById('fps').textContent=Math.round(state.fps);
+    document.getElementById('dynamicVal').textContent=state.moving.length;
+    const conf = state.cloud.length > 4500 ? 'HIGH' : state.cloud.length > 1800 ? 'MED' : 'LOW';
+    document.getElementById('confHeader').textContent=conf;
+    document.getElementById('mapConf').textContent=conf;
+    document.getElementById('historyVal').textContent=Math.min(8,Math.round(state.mapTime))+' s';
+
+    // Report the finest active band represented by current live LiDAR returns.
+    const nearCount = state.cloud.filter(p=>p.rho<5).length;
+    const midCount = state.cloud.filter(p=>p.rho>=5 && p.rho<10).length;
+    const farCount = state.cloud.filter(p=>p.rho>=10 && p.rho<15).length;
+    const active = nearCount>0 ? '0–5 m / 5 cm'
+                 : midCount>0 ? '5–10 m / 10 cm'
+                 : farCount>0 ? '10–15 m / 25 cm'
+                 : '15–18 m / 50 cm';
+    document.getElementById('activeBand').textContent = active;
+    requestAnimationFrame(frame);
+  }
+
+  addEventListener('keydown',e=>{state.keys[e.key.toLowerCase()]=true});
+  addEventListener('keyup',e=>{state.keys[e.key.toLowerCase()]=false});
+  document.getElementById('resetBtn').onclick=()=>{
+    state.robot.x=0;state.robot.y=0;state.robot.a=0;state.path=[];state.mappedReturns=[];
+};
+  document.getElementById('addBtn').onclick=()=>{
+    if(Math.random()<.55){
+      const route=state.carRoutes[Math.floor(Math.random()*state.carRoutes.length)];
+      spawnActor(route,'car',Math.random()<.5,true);
+    } else {
+      const route=state.pedRoutes[Math.floor(Math.random()*state.pedRoutes.length)];
+      spawnActor(route,'ped',Math.random()<.5,true);
+    }
+  };
+  map.addEventListener('click',ev=>{
+    const r=map.getBoundingClientRect(), sx=ev.clientX-r.left, sy=ev.clientY-r.top; let best=-1,bd=1e9;
+    for(let i=0;i<Math.min(8,state.clusters.length);i++){
+      const c=state.clusters[i]; const dx=c.x-state.robot.x,dy=c.y-state.robot.y;
+      const q=(function(){const perspective=1/(1+0.0105*c.rho);return{x:map.clientWidth*.5+dx*(Math.min(map.clientWidth,map.clientHeight)*.40/state.range)*perspective,y:map.clientHeight*.59-dy*(Math.min(map.clientWidth,map.clientHeight)*.40/state.range)*.86*perspective-c.maxZ*(Math.min(map.clientWidth,map.clientHeight)*.40/state.range)*.95*perspective}})();
+      const d=Math.hypot(sx-q.x,sy-q.y); if(d<bd){bd=d;best=i;}
+    }
+    state.selectedCluster=bd<70?best:-1;
+  });
+  addEventListener('resize',()=>{drawWorld();drawLidar();drawIsoMap()});
+  document.getElementById('rayCount').textContent=(state.rays*state.verticalChannels).toLocaleString();document.getElementById('range').textContent=state.range.toFixed(1)+' m';
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
