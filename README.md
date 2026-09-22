@@ -29,8 +29,3 @@ The browser simulation is a visual prototype. Its LiDAR returns, traffic flow, a
 
 Open `index.html` directly in a modern browser, or serve the repository with a local static server.
 
-## GitHub Pages
-
-This repository is designed to work as a static GitHub Pages site. Set GitHub Pages to deploy from the repository's `main` branch and `/ (root)`.
-
-Suggested repository name: `FUTURE-INNOVATORS` (GitHub repository names cannot contain spaces).
